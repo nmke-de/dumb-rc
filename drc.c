@@ -41,10 +41,13 @@ int main(int argc, char **argv) {
 		// Change to directory with services.
 		chdir(argv[i]);
 		
+		// Open directory and allocate memory for path buffer.
 		logln("drc: Scanning directory ", argv[i], " now.");
 		DIR *services = opendir(argv[i]);
 		char path[strlen(argv[i]) + 256];
 		strncpy(path, argv[i], strlen(argv[i]));
+
+		// Loop over directory entries
 		for (struct dirent *run = readdir(services); run != NULL; run = readdir(services)) {
 			// Ignore dotfiles
 			if (run->d_name[0] == '.')
@@ -71,6 +74,8 @@ int main(int argc, char **argv) {
 				logln("drc: Started ", run->d_name, " as child #", itoa(children, 10));
 			}
 		}
+
+		// Close directory
 		closedir(services);
 		logln("drc: Done Scanning directory ", argv[i], ".");
 	}
