@@ -20,6 +20,13 @@ static void waitless(int _) {
 int main(int argc, char **argv) {
 	// Can't scan a directory null, right?
 	if (argc < 2) {
+		println("drc - The Dumb RunCommand. By nmke-de (c) 2024 - ???
+Version: 0.1
+Syntax: drc [/absolute/paths/to/directories...]
+
+drc will scan all given directories for executable
+regular files and daemonize them. Upon being killed,
+all children of drc should also exit.");
 		return 1;
 	}
 
