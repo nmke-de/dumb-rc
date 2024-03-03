@@ -4,11 +4,13 @@
 #include <sys/prctl.h>
 #include <string.h>
 #include <signal.h>
+#include <dirent.h>
 #include "print/print.h"
 
 extern char **environ;
 #define sys(args) execve(*(args), (args), environ)
 
+/*
 // Kill child process and stop supervising.
 pid_t child;
 char *childname;
@@ -17,48 +19,68 @@ void fine(int signum) {
 	logln("Killing ", childname);
 	kill(child, SIGTERM);
 	running = 0;
+}*/
+
+static int children;
+static void waitless(int _) {
+	logln("drc: Child died.");
+	--children;
 }
 
-// Supervise a single service without arguments
+// Scan a directory for scripts to daemonize
 int main(int argc, char **argv) {
-	// Can't supervise null process, right?
+	// Can't scan a directory null, right?
 	if (argc < 2) {
 		return 1;
 	}
-	// Idk if this is necessary.
-	chdir("/");
+
+	// If parent dies, die yourself.
+	prctl(PR_SET_PDEATHSIG, SIGTERM);
+
+	// Change to directory with services.
+	chdir(argv[1]);
+
+	/*
 	// Check whether specified executable even exists (and whether it is a regular executable file)
 	struct stat sb;
 	if (stat(argv[1], &sb) < 0) {
-		logln("File ", argv[1], " not Found.");
+		logln("drc: Directory ", argv[1], " not Found.");
 		return 2;
 	}
-	if (!S_ISREG(sb.st_mode)) {
-		logln("File ", argv[1], " is not a regular file.");
+	if (!S_ISDIR(sb.st_mode)) {
+		logln("drc: File ", argv[1], " is not a regular file.");
 		return 3;
 	}
 	if (access(argv[1], X_OK) != 0) {
-		logln("File ", argv[1], " is not executable.");
+		logln("drc: Directory ", argv[1], " is not executable.");
 		return 4;
 	}
-	// Prepare command
-	for (int i = 0; i < argc - 1;)
-		argv[i] = argv[++i];
-	argv[argc - 1] = NULL;
-	// Prepare signal handler
-	prctl(PR_SET_PDEATHSIG, SIGTERM);
-	childname = *argv;
-	signal(SIGINT, fine);
-	signal(SIGTERM, fine);
-	// Main loop. Wait until child quits before restarting.
-	int childstatus;
-	for (;;) {
+	*/
+
+	// Scan directory and run scripts
+	logln("drc: Scanning directory ", argv[1], " now.");
+	DIR *services = opendir(argv[1]);
+	pid_t child;
+	char path[strlen(argv[1]) + 256];
+	strncpy(path, argv[1], strlen(argv[1]));
+	for (struct dirent *run = readdir(services); run != NULL; run = readdir(services)) {
+		path[strlen(argv[1])] = '/';
+		strncpy(path + strlen(argv[1]) + 1, run->d_name, strlen(run->d_name));
 		child = fork();
 		if (child == 0)
-			sys(argv);
-		waitpid(child, &childstatus, 0);
-		if (!running)
-			return 0;
-		println("Restarting ", argv[0], "...");
+			execve("/usr/local/bin/dsv", (char **) cargs("/usr/local/bin/dsv", path), environ);
+		else if (child > 0) {
+			++children;
+			logln("drc: Started ", run->d_name);
+		}
 	}
+	closedir(services);
+	logln("drc: Done Scanning directory ", argv[1], ".");
+
+	// Wait
+	signal(SIGCLD, waitless);
+	while (children)
+		wait(NULL);
+
+	return 0;
 }
