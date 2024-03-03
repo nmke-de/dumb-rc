@@ -44,6 +44,8 @@ int main(int argc, char **argv) {
 		// Open directory and allocate memory for path buffer.
 		logln("drc: Scanning directory ", argv[i], " now.");
 		DIR *services = opendir(argv[i]);
+		if (!services)
+			continue;
 		char path[strlen(argv[i]) + 256];
 		strncpy(path, argv[i], strlen(argv[i]));
 
