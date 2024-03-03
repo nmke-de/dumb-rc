@@ -1,6 +1,6 @@
 # Dumb RunCommand
 
-**Dumb RunCommand** (short: drc) is a program that scans directories for services to supervise. By default, the supervisor will be [`/usr/local/bin/dsv](https://github.com/nmke-de/dumb-sv).
+**Dumb RunCommand** (short: drc) is a program that scans directories for services to supervise. By default, the supervisor will be [`/usr/local/bin/dsv`](https://github.com/nmke-de/dumb-sv).
 
 ## But why?
 
