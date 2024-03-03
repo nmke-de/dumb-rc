@@ -5,6 +5,7 @@
 #include <string.h>
 #include <signal.h>
 #include <dirent.h>
+#include <stdlib.h>
 #include "print/print.h"
 #include "Itoa/itoa.h"
 
@@ -30,6 +31,11 @@ int main(int argc, char **argv) {
 
 	// Change to directory with services.
 	chdir(argv[1]);
+
+	// Get dsv location
+	char *dsv = getenv("DSV_LOCATION");
+	if (!dsv)
+		dsv = "/usr/local/bin/dsv";
 	
 	// Scan directory and run scripts
 	logln("drc: Scanning directory ", argv[1], " now.");
@@ -43,8 +49,10 @@ int main(int argc, char **argv) {
 		if (run->d_name[0] == '.')
 			continue;
 
+		// Concat path
 		path[strlen(argv[1])] = '/';
 		strncpy(path + strlen(argv[1]) + 1, run->d_name, strlen(run->d_name));
+		
 		// Check file eligibility
 		if (stat(path, &sb) < 0)
 			continue;
@@ -56,10 +64,10 @@ int main(int argc, char **argv) {
 		// Spawn child
 		child = fork();
 		if (child == 0)
-			execve("/usr/local/bin/dsv", (char **) cargs("/usr/local/bin/dsv", path), environ);
+			execve(dsv, (char **) cargs(dsv, path), environ);
 		else if (child > 0) {
 			++children;
-			logln("drc: Started ", run->d_name, " as child ", itoa(children, 10));
+			logln("drc: Started ", run->d_name, " as child #", itoa(children, 10));
 		}
 	}
 	closedir(services);
