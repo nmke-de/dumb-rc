@@ -7,13 +7,16 @@
 #include <stdlib.h>
 #include "print/print.h"
 #include "Itoa/itoa.h"
+// #define DEBUG
+#include "log.h"
 
 extern char **environ;
+int logfd;
 
 static int children;
 static void waitless(int _) {
 	--children;
-	logln("drc: Child died. Children remaining: ", itoa(children, 10));
+	dlog("drc: Child died. Children remaining: ", itoa(children, 10));
 }
 
 // Scan a directory for scripts to daemonize
@@ -29,6 +32,7 @@ regular files and daemonize them. Upon being killed,
 all children of drc should also exit.");
 		return 1;
 	}
+	dloginit("/tmp/drc");
 
 	// If parent dies, die yourself.
 	prctl(PR_SET_PDEATHSIG, SIGTERM);
@@ -48,7 +52,7 @@ all children of drc should also exit.");
 		chdir(argv[i]);
 		
 		// Open directory and allocate memory for path buffer.
-		logln("drc: Scanning directory ", argv[i], " now.");
+		dlog("drc: Scanning directory ", argv[i], " now.");
 		DIR *services = opendir(argv[i]);
 		if (!services)
 			continue;
@@ -57,6 +61,8 @@ all children of drc should also exit.");
 
 		// Loop over directory entries
 		for (struct dirent *run = readdir(services); run != NULL; run = readdir(services)) {
+			dlog("Currently checking ", run->d_name);
+
 			// Ignore dotfiles
 			if (run->d_name[0] == '.')
 				continue;
@@ -64,6 +70,8 @@ all children of drc should also exit.");
 			// Concat path
 			path[strlen(argv[i])] = '/';
 			strncpy(path + strlen(argv[i]) + 1, run->d_name, strlen(run->d_name));
+			path[strlen(argv[i]) + strlen(run->d_name) + 1] = 0;
+			dlog("Full path: ", path);
 
 			// Check file eligibility
 			if (stat(path, &sb) < 0)
@@ -79,18 +87,19 @@ all children of drc should also exit.");
 				execve(dsv, (char **) cargs(dsv, path), environ);
 			else if (child > 0) {
 				++children;
-				logln("drc: Started ", run->d_name, " as child #", itoa(children, 10));
+				dlog("drc: Started ", run->d_name, " as child #", itoa(children, 10));
 			}
 		}
 
 		// Close directory
 		closedir(services);
-		logln("drc: Done Scanning directory ", argv[i], ".");
+		dlog("drc: Done Scanning directory ", argv[i], ".");
 	}
 
 	// Wait
 	while (children)
 		wait(NULL);
+	dlogquit();
 
 	return 0;
 }
