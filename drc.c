@@ -29,49 +29,51 @@ int main(int argc, char **argv) {
 	// Count children
 	signal(SIGCLD, waitless);
 
-	// Change to directory with services.
-	chdir(argv[1]);
-
 	// Get dsv location
 	char *dsv = getenv("DSV_LOCATION");
 	if (!dsv)
 		dsv = "/usr/local/bin/dsv";
 	
-	// Scan directory and run scripts
-	logln("drc: Scanning directory ", argv[1], " now.");
-	DIR *services = opendir(argv[1]);
+	// Scan directories and run scripts
 	pid_t child;
-	char path[strlen(argv[1]) + 256];
 	struct stat sb;
-	strncpy(path, argv[1], strlen(argv[1]));
-	for (struct dirent *run = readdir(services); run != NULL; run = readdir(services)) {
-		// Ignore dotfiles
-		if (run->d_name[0] == '.')
-			continue;
-
-		// Concat path
-		path[strlen(argv[1])] = '/';
-		strncpy(path + strlen(argv[1]) + 1, run->d_name, strlen(run->d_name));
+	for (int i = 1; i < argc; i++) {
+		// Change to directory with services.
+		chdir(argv[i]);
 		
-		// Check file eligibility
-		if (stat(path, &sb) < 0)
-			continue;
-		if (!S_ISREG(sb.st_mode))
-			continue;
-		if (access(path, X_OK) != 0)
-			continue;
+		logln("drc: Scanning directory ", argv[i], " now.");
+		DIR *services = opendir(argv[i]);
+		char path[strlen(argv[i]) + 256];
+		strncpy(path, argv[i], strlen(argv[i]));
+		for (struct dirent *run = readdir(services); run != NULL; run = readdir(services)) {
+			// Ignore dotfiles
+			if (run->d_name[0] == '.')
+				continue;
 
-		// Spawn child
-		child = fork();
-		if (child == 0)
-			execve(dsv, (char **) cargs(dsv, path), environ);
-		else if (child > 0) {
-			++children;
-			logln("drc: Started ", run->d_name, " as child #", itoa(children, 10));
+			// Concat path
+			path[strlen(argv[i])] = '/';
+			strncpy(path + strlen(argv[i]) + 1, run->d_name, strlen(run->d_name));
+
+			// Check file eligibility
+			if (stat(path, &sb) < 0)
+				continue;
+			if (!S_ISREG(sb.st_mode))
+				continue;
+			if (access(path, X_OK) != 0)
+				continue;
+
+			// Spawn child
+			child = fork();
+			if (child == 0)
+				execve(dsv, (char **) cargs(dsv, path), environ);
+			else if (child > 0) {
+				++children;
+				logln("drc: Started ", run->d_name, " as child #", itoa(children, 10));
+			}
 		}
+		closedir(services);
+		logln("drc: Done Scanning directory ", argv[i], ".");
 	}
-	closedir(services);
-	logln("drc: Done Scanning directory ", argv[1], ".");
 
 	// Wait
 	while (children)
